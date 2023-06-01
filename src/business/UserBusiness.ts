@@ -4,11 +4,15 @@ import { LoginInputDTO, LoginOutputDTO } from "../dtos/user/login.dto"
 import { SignupInputDTO, SignupOutputDTO } from "../dtos/user/signup.dto"
 import { BadRequestError } from "../errors/BadRequestError"
 import { NotFoundError } from "../errors/NotFoundError"
-import { USER_ROLES, User } from "../models/User"
+import { TokenPayload, USER_ROLES, User } from "../models/User"
+import { IdGenerator } from "../services/IdGenerator"
+import { TokenManager } from "../services/TokenManager"
 
 export class UserBusiness {
   constructor(
-    private userDatabase: UserDatabase
+    private userDatabase: UserDatabase,
+    private idGenerator: IdGenerator,
+    private tokenManager : TokenManager
   ) { }
 
   public getUsers = async (
@@ -36,16 +40,16 @@ export class UserBusiness {
     return output
   }
 
-  public signup = async (
-    input: SignupInputDTO
-  ): Promise<SignupOutputDTO> => {
-    const { id, name, email, password } = input
+  public signup = async ( input: SignupInputDTO ): Promise <SignupOutputDTO> => {
+    const { name, email, password } = input
 
-    const userDBExists = await this.userDatabase.findUserById(id)
+    const id = this.idGenerator.generate()
 
-    if (userDBExists) {
-      throw new BadRequestError("'id' já existe")
-    }
+    // const userDBExists = await this.userDatabase.findUserById(id)
+
+    // if (userDBExists) {
+    //   throw new BadRequestError("'id' já existe")
+    // }
 
     const newUser = new User(
       id,
@@ -59,9 +63,22 @@ export class UserBusiness {
     const newUserDB = newUser.toDBModel()
     await this.userDatabase.insertUser(newUserDB)
 
+    // const tokenPayload: TokenPayload = {
+    //   id: newUser.getId(),
+    //   name: newUser.getName(), 
+    //   role: newUser.getRole()
+    // }
+    // pode colocar esse dentro do create token ou criar direto 
+
+    const token = this.tokenManager.createToken(
+        {id: newUser.getId(),
+        name: newUser.getName(), 
+        role: newUser.getRole()}
+    )
+
     const output: SignupOutputDTO = {
       message: "Cadastro realizado com sucesso",
-      token: "token"
+      token
     }
 
     return output
